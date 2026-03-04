@@ -47,8 +47,11 @@ Copy-Item wezterm-windows.lua $HOME\.wezterm.lua
 | Scroll to bottom | `Cmd+End` | `Ctrl+End` |
 | Scroll half page up | `Cmd+Alt+U` | `Ctrl+Alt+U` |
 | Scroll half page down | `Cmd+Alt+D` | `Ctrl+Alt+D` |
+| Right-click (smart†) | Copy or Paste | Copy or Paste |
 
 \* **Smart Ctrl+C (Windows)**: Copies text when a selection exists, sends interrupt signal (SIGINT) when nothing is selected.
+
+† **PuTTY-style right-click (both platforms)**: Right-click copies text when a selection exists, pastes from clipboard when nothing is selected.
 
 ## Key Differences Between macOS and Windows Configs
 

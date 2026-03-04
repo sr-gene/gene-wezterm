@@ -119,4 +119,23 @@ config.keys = {
   { key = 'd', mods = 'CMD|ALT', action = act.ScrollByPage(0.5) },
 }
 
+---------------------------------------
+-- Mouse bindings (PuTTY-style right-click)
+---------------------------------------
+config.mouse_bindings = {
+  {
+    event = { Down = { streak = 1, button = 'Right' } },
+    mods = 'NONE',
+    action = wezterm.action_callback(function(window, pane)
+      local sel = window:get_selection_text_for_pane(pane)
+      if sel and sel ~= '' then
+        window:perform_action(act.CopyTo 'ClipboardAndPrimarySelection', pane)
+        window:perform_action(act.ClearSelection, pane)
+      else
+        window:perform_action(act.PasteFrom 'Clipboard', pane)
+      end
+    end),
+  },
+}
+
 return config
