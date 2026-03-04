@@ -86,7 +86,22 @@ config.ime_preedit_rendering = 'Builtin'
 ---------------------------------------
 -- Default Shell (PowerShell)
 ---------------------------------------
-config.default_prog = { 'powershell.exe' }
+config.default_prog = { 'powershell.exe', '-NoLogo' }
+
+---------------------------------------
+-- Tab title: show current directory
+---------------------------------------
+wezterm.on('format-tab-title', function(tab)
+  local pane = tab.active_pane
+  local cwd = pane.current_working_dir
+  if cwd then
+    local path = cwd.file_path or tostring(cwd)
+    path = path:gsub('^file:///',''):gsub('/$','')
+    local folder = path:match('[/\\]([^/\\]+)$') or path
+    return (tab.tab_index + 1) .. ': ' .. folder
+  end
+  return (tab.tab_index + 1) .. ': ' .. tab.active_pane.title
+end)
 
 ---------------------------------------
 -- Keybindings (Windows: CTRL based)
@@ -111,6 +126,17 @@ config.keys = {
 
   -- New tab
   { key = 't', mods = 'CTRL', action = act.SpawnTab 'CurrentPaneDomain' },
+
+  -- Tab switching (Ctrl+1~9)
+  { key = '1', mods = 'CTRL', action = act.ActivateTab(0) },
+  { key = '2', mods = 'CTRL', action = act.ActivateTab(1) },
+  { key = '3', mods = 'CTRL', action = act.ActivateTab(2) },
+  { key = '4', mods = 'CTRL', action = act.ActivateTab(3) },
+  { key = '5', mods = 'CTRL', action = act.ActivateTab(4) },
+  { key = '6', mods = 'CTRL', action = act.ActivateTab(5) },
+  { key = '7', mods = 'CTRL', action = act.ActivateTab(6) },
+  { key = '8', mods = 'CTRL', action = act.ActivateTab(7) },
+  { key = '9', mods = 'CTRL', action = act.ActivateTab(8) },
 
   -- Copy / Paste (Ctrl+C smart: copy when selected, interrupt otherwise)
   { key = 'c', mods = 'CTRL', action = wezterm.action_callback(function(window, pane)

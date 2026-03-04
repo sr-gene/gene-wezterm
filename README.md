@@ -40,6 +40,7 @@ Copy-Item wezterm-windows.lua $HOME\.wezterm.lua
 | Split vertical | `Cmd+Shift+E` | `Ctrl+Shift+E` |
 | Close pane | `Cmd+W` | `Ctrl+W` |
 | New tab | `Cmd+T` | `Ctrl+T` |
+| Switch to tab 1–9 | `Cmd+1–9` | `Ctrl+1–9` |
 | Copy | `Cmd+C` | `Ctrl+C` (smart*) |
 | Paste | `Cmd+V` | `Ctrl+V` |
 | Move pane left/down/up/right | `Alt+H/J/K/L` | `Alt+H/J/K/L` |

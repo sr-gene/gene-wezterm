@@ -85,7 +85,22 @@ config.use_ime = true
 config.ime_preedit_rendering = 'Builtin'
 
 ---------------------------------------
--- 키바인딩 (macOS: CMD 기반)
+-- Tab title: show current directory
+---------------------------------------
+wezterm.on('format-tab-title', function(tab)
+  local pane = tab.active_pane
+  local cwd = pane.current_working_dir
+  if cwd then
+    local path = cwd.file_path or tostring(cwd)
+    path = path:gsub('^file:///',''):gsub('/$','')
+    local folder = path:match('[/\\]([^/\\]+)$') or path
+    return (tab.tab_index + 1) .. ': ' .. folder
+  end
+  return (tab.tab_index + 1) .. ': ' .. tab.active_pane.title
+end)
+
+---------------------------------------
+-- Keybindings (macOS: CMD based)
 ---------------------------------------
 config.keys = {
   -- Pane 분할
