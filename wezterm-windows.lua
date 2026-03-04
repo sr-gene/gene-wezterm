@@ -84,6 +84,11 @@ config.use_ime = true
 config.ime_preedit_rendering = 'Builtin'
 
 ---------------------------------------
+-- Default Shell (PowerShell)
+---------------------------------------
+config.default_prog = { 'powershell.exe' }
+
+---------------------------------------
 -- Keybindings (Windows: CTRL based)
 ---------------------------------------
 config.keys = {
@@ -106,6 +111,9 @@ config.keys = {
 
   -- New tab
   { key = 't', mods = 'CTRL', action = act.SpawnTab 'CurrentPaneDomain' },
+
+  -- New admin tab (requires gsudo: winget install gerardog.gsudo)
+  { key = 't', mods = 'CTRL|SHIFT', action = act.SpawnCommandInNewTab { args = { 'gsudo', 'powershell.exe' } } },
 
   -- Copy / Paste (Ctrl+C smart: copy when selected, interrupt otherwise)
   { key = 'c', mods = 'CTRL', action = wezterm.action_callback(function(window, pane)
