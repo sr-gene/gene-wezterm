@@ -113,7 +113,7 @@ config.keys = {
   { key = 't', mods = 'CTRL', action = act.SpawnTab 'CurrentPaneDomain' },
 
   -- New admin tab (requires gsudo: winget install gerardog.gsudo)
-  { key = 't', mods = 'CTRL|SHIFT', action = act.SpawnCommandInNewTab { args = { 'gsudo', '--direct', 'powershell.exe', '-NoLogo' } } },
+  { key = 't', mods = 'CTRL|SHIFT', action = act.SpawnCommandInNewTab { args = { 'gsudo', '--vt', 'powershell.exe', '-NoLogo', '-NoExit' } } },
 
   -- Copy / Paste (Ctrl+C smart: copy when selected, interrupt otherwise)
   { key = 'c', mods = 'CTRL', action = wezterm.action_callback(function(window, pane)
