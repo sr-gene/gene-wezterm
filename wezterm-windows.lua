@@ -103,6 +103,20 @@ wezterm.on('format-tab-title', function(tab)
   return (tab.tab_index + 1) .. ': ' .. tab.active_pane.title
 end)
 
+-- Status bar: show full working directory path on the right side of tab bar
+wezterm.on('update-status', function(window, pane)
+  local cwd = pane:get_current_working_dir()
+  local path = ''
+  if cwd then
+    path = cwd.file_path or tostring(cwd)
+    path = path:gsub('^file:///',''):gsub('/$','')
+  end
+  window:set_right_status(wezterm.format {
+    { Foreground = { Color = '#ff9e64' } },
+    { Text = '  ' .. path .. '  ' },
+  })
+end)
+
 ---------------------------------------
 -- Keybindings (Windows: CTRL based)
 ---------------------------------------
