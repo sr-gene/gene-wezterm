@@ -30,6 +30,14 @@ if (-not $function:prompt_original) {
 }
 '@
 
+# Install glow (markdown viewer) via winget if not already installed
+if (-not (Get-Command glow -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing glow..." -ForegroundColor Cyan
+    winget install charmbracelet.glow --accept-source-agreements --accept-package-agreements
+} else {
+    Write-Host "glow already installed." -ForegroundColor Green
+}
+
 $marker = '# WezTerm OSC 7'
 if ((Test-Path $PROFILE) -and (Select-String -Path $PROFILE -Pattern $marker -Quiet)) {
     Write-Host "OSC 7 already in PowerShell profile." -ForegroundColor Green

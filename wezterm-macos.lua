@@ -2,6 +2,13 @@ local wezterm = require 'wezterm'
 local config = wezterm.config_builder()
 local act = wezterm.action
 
+-- Extract path from WezTerm's cwd URL
+local function get_cwd(pane)
+  local cwd = pane:get_current_working_dir()
+  if not cwd then return nil end
+  return cwd.file_path or nil
+end
+
 ---------------------------------------
 -- 폰트 설정 (Nerd Font 권장)
 ---------------------------------------
@@ -85,6 +92,35 @@ config.use_ime = true
 config.ime_preedit_rendering = 'Builtin'
 
 ---------------------------------------
+-- Session restore
+---------------------------------------
+local session_file = wezterm.home_dir .. '/.wezterm_session.json'
+local last_save_time = 0
+
+local function save_session(window)
+  local now = os.time()
+  if now - last_save_time < 30 then return end
+  last_save_time = now
+  local tabs = {}
+  for _, tab in ipairs(window:mux_window():tabs()) do
+    local path = get_cwd(tab:active_pane())
+    if path then table.insert(tabs, path) end
+  end
+  local f = io.open(session_file, 'w')
+  if f then f:write(wezterm.json_encode(tabs)); f:close() end
+end
+
+wezterm.on('gui-startup', function(cmd)
+  local f = io.open(session_file, 'r')
+  if not f then wezterm.mux.spawn_window(cmd or {}); return end
+  local data = f:read('*a'); f:close()
+  local tabs = wezterm.json_decode(data)
+  if not tabs or #tabs == 0 then wezterm.mux.spawn_window(cmd or {}); return end
+  local _, _, window = wezterm.mux.spawn_window({ cwd = tabs[1] })
+  for i = 2, #tabs do window:spawn_tab({ cwd = tabs[i] }) end
+end)
+
+---------------------------------------
 -- Tab title: show current directory
 ---------------------------------------
 wezterm.on('format-tab-title', function(tab)
@@ -101,6 +137,7 @@ end)
 
 -- Status bar: show full working directory path on the right side of tab bar
 wezterm.on('update-status', function(window, pane)
+  save_session(window)
   local cwd = pane:get_current_working_dir()
   local path = ''
   if cwd then
@@ -130,6 +167,11 @@ config.keys = {
   -- Pane 크기 조절
   { key = 'H', mods = 'ALT|SHIFT', action = act.AdjustPaneSize { 'Left', 5 } },
   { key = 'L', mods = 'ALT|SHIFT', action = act.AdjustPaneSize { 'Right', 5 } },
+
+  -- New window (inherit current directory)
+  { key = 'n', mods = 'CMD', action = wezterm.action_callback(function(window, pane)
+    window:perform_action(act.SpawnCommandInNewWindow { cwd = get_cwd(pane), domain = 'CurrentPaneDomain' }, pane)
+  end)},
 
   -- Pane 닫기
   { key = 'w', mods = 'CMD', action = act.CloseCurrentPane { confirm = true } },

@@ -2,6 +2,15 @@ local wezterm = require 'wezterm'
 local config = wezterm.config_builder()
 local act = wezterm.action
 
+-- Extract valid Windows path from WezTerm's cwd URL
+local function get_cwd(pane)
+  local cwd = pane:get_current_working_dir()
+  if not cwd then return nil end
+  local path = cwd.file_path or tostring(cwd)
+  -- Extract Windows drive-letter path from any prefix (e.g. /HOSTNAME/C:/... or /C:/...)
+  return path:match('([A-Za-z]:[/\\].*)') or path
+end
+
 ---------------------------------------
 -- Font (Nerd Font recommended)
 ---------------------------------------
@@ -89,6 +98,35 @@ config.ime_preedit_rendering = 'Builtin'
 config.default_prog = { 'powershell.exe', '-NoLogo' }
 
 ---------------------------------------
+-- Session restore
+---------------------------------------
+local session_file = wezterm.home_dir .. '/.wezterm_session.json'
+local last_save_time = 0
+
+local function save_session(window)
+  local now = os.time()
+  if now - last_save_time < 30 then return end
+  last_save_time = now
+  local tabs = {}
+  for _, tab in ipairs(window:mux_window():tabs()) do
+    local path = get_cwd(tab:active_pane())
+    if path then table.insert(tabs, path) end
+  end
+  local f = io.open(session_file, 'w')
+  if f then f:write(wezterm.json_encode(tabs)); f:close() end
+end
+
+wezterm.on('gui-startup', function(cmd)
+  local f = io.open(session_file, 'r')
+  if not f then wezterm.mux.spawn_window(cmd or {}); return end
+  local data = f:read('*a'); f:close()
+  local tabs = wezterm.json_decode(data)
+  if not tabs or #tabs == 0 then wezterm.mux.spawn_window(cmd or {}); return end
+  local _, _, window = wezterm.mux.spawn_window({ cwd = tabs[1] })
+  for i = 2, #tabs do window:spawn_tab({ cwd = tabs[i] }) end
+end)
+
+---------------------------------------
 -- Tab title: show current directory
 ---------------------------------------
 wezterm.on('format-tab-title', function(tab)
@@ -105,6 +143,7 @@ end)
 
 -- Status bar: show full working directory path on the right side of tab bar
 wezterm.on('update-status', function(window, pane)
+  save_session(window)
   local cwd = pane:get_current_working_dir()
   local path = ''
   if cwd then
@@ -121,9 +160,13 @@ end)
 -- Keybindings (Windows: CTRL based)
 ---------------------------------------
 config.keys = {
-  -- Pane split
-  { key = 'd', mods = 'CTRL', action = act.SplitHorizontal { domain = 'CurrentPaneDomain' } },
-  { key = 'e', mods = 'CTRL|SHIFT', action = act.SplitVertical { domain = 'CurrentPaneDomain' } },
+  -- Pane split (inherit current directory)
+  { key = 'd', mods = 'CTRL', action = wezterm.action_callback(function(window, pane)
+    window:perform_action(act.SplitHorizontal { domain = 'CurrentPaneDomain', cwd = get_cwd(pane) }, pane)
+  end)},
+  { key = 'e', mods = 'CTRL|SHIFT', action = wezterm.action_callback(function(window, pane)
+    window:perform_action(act.SplitVertical { domain = 'CurrentPaneDomain', cwd = get_cwd(pane) }, pane)
+  end)},
 
   -- Pane navigation
   { key = 'h', mods = 'ALT', action = act.ActivatePaneDirection 'Left' },
@@ -135,11 +178,18 @@ config.keys = {
   { key = 'H', mods = 'ALT|SHIFT', action = act.AdjustPaneSize { 'Left', 5 } },
   { key = 'L', mods = 'ALT|SHIFT', action = act.AdjustPaneSize { 'Right', 5 } },
 
+  -- New window (inherit current directory)
+  { key = 'n', mods = 'CTRL', action = wezterm.action_callback(function(window, pane)
+    window:perform_action(act.SpawnCommandInNewWindow { cwd = get_cwd(pane), domain = 'CurrentPaneDomain' }, pane)
+  end)},
+
   -- Close pane
   { key = 'w', mods = 'CTRL', action = act.CloseCurrentPane { confirm = true } },
 
-  -- New tab
-  { key = 't', mods = 'CTRL', action = act.SpawnTab 'CurrentPaneDomain' },
+  -- New tab (inherit current directory)
+  { key = 't', mods = 'CTRL', action = wezterm.action_callback(function(window, pane)
+    window:perform_action(act.SpawnCommandInNewTab { cwd = get_cwd(pane), domain = 'CurrentPaneDomain' }, pane)
+  end)},
 
   -- Tab switching (Ctrl+1~9)
   { key = '1', mods = 'CTRL', action = act.ActivateTab(0) },
