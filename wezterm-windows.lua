@@ -84,11 +84,11 @@ config.use_ime = true
 config.ime_preedit_rendering = 'Builtin'
 
 ---------------------------------------
--- Keybindings (Windows: CTRL+SHIFT based)
+-- Keybindings (Windows: CTRL based)
 ---------------------------------------
 config.keys = {
   -- Pane split
-  { key = 'd', mods = 'CTRL|SHIFT', action = act.SplitHorizontal { domain = 'CurrentPaneDomain' } },
+  { key = 'd', mods = 'CTRL', action = act.SplitHorizontal { domain = 'CurrentPaneDomain' } },
   { key = 'e', mods = 'CTRL|SHIFT', action = act.SplitVertical { domain = 'CurrentPaneDomain' } },
 
   -- Pane navigation
@@ -102,10 +102,10 @@ config.keys = {
   { key = 'L', mods = 'ALT|SHIFT', action = act.AdjustPaneSize { 'Right', 5 } },
 
   -- Close pane
-  { key = 'w', mods = 'CTRL|SHIFT', action = act.CloseCurrentPane { confirm = true } },
+  { key = 'w', mods = 'CTRL', action = act.CloseCurrentPane { confirm = true } },
 
   -- New tab
-  { key = 't', mods = 'CTRL|SHIFT', action = act.SpawnTab 'CurrentPaneDomain' },
+  { key = 't', mods = 'CTRL', action = act.SpawnTab 'CurrentPaneDomain' },
 
   -- Copy / Paste (Ctrl+C smart: copy when selected, interrupt otherwise)
   { key = 'c', mods = 'CTRL', action = wezterm.action_callback(function(window, pane)
@@ -116,7 +116,7 @@ config.keys = {
       window:perform_action(act.SendKey { key = 'c', mods = 'CTRL' }, pane)
     end
   end)},
-  { key = 'v', mods = 'CTRL|SHIFT', action = act.PasteFrom 'Clipboard' },
+  { key = 'v', mods = 'CTRL', action = act.PasteFrom 'Clipboard' },
 
   -- Scroll navigation
   { key = 'End', mods = 'CTRL', action = act.ScrollToBottom },

@@ -7,7 +7,7 @@ Cross-platform WezTerm terminal configuration with Tokyo Night theme.
 | File | Description |
 |------|-------------|
 | `wezterm-macos.lua` | macOS config (`CMD` based keybindings) |
-| `wezterm-windows.lua` | Windows config (`CTRL+SHIFT` based keybindings) |
+| `wezterm-windows.lua` | Windows config (`CTRL` based keybindings) |
 
 ## Installation
 
@@ -35,12 +35,12 @@ Copy-Item wezterm-windows.lua $HOME\.wezterm.lua
 
 | Action | macOS | Windows |
 |--------|-------|---------|
-| Split horizontal | `Cmd+D` | `Ctrl+Shift+D` |
+| Split horizontal | `Cmd+D` | `Ctrl+D` |
 | Split vertical | `Cmd+Shift+E` | `Ctrl+Shift+E` |
-| Close pane | `Cmd+W` | `Ctrl+Shift+W` |
-| New tab | `Cmd+T` | `Ctrl+Shift+T` |
+| Close pane | `Cmd+W` | `Ctrl+W` |
+| New tab | `Cmd+T` | `Ctrl+T` |
 | Copy | `Cmd+C` | `Ctrl+C` (smart*) |
-| Paste | `Cmd+V` | `Ctrl+Shift+V` |
+| Paste | `Cmd+V` | `Ctrl+V` |
 | Move pane left/down/up/right | `Alt+H/J/K/L` | `Alt+H/J/K/L` |
 | Resize pane left/right | `Alt+Shift+H/L` | `Alt+Shift+H/L` |
 | Scroll to top | `Cmd+Home` | `Ctrl+Home` |
@@ -55,7 +55,7 @@ Copy-Item wezterm-windows.lua $HOME\.wezterm.lua
 
 ## Key Differences Between macOS and Windows Configs
 
-- **Modifier keys**: macOS uses `CMD`, Windows uses `CTRL+SHIFT`
+- **Modifier keys**: macOS uses `CMD`, Windows uses `CTRL`
 - **Font size**: macOS `14.0` (Retina), Windows `12.0`
 - **Smart copy**: Windows has smart `Ctrl+C` to avoid conflict with terminal interrupt
 - **Fullscreen**: macOS config enables `native_macos_fullscreen_mode`
