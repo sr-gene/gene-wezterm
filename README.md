@@ -31,7 +31,6 @@ Copy-Item wezterm-windows.lua $HOME\.wezterm.lua
 - **Korean IME**: Enabled with builtin preedit rendering
 - **Tab bar**: Minimal style at top, always visible
 - **Default shell (Windows)**: PowerShell (instead of cmd.exe)
-- **Admin tab (Windows)**: Open elevated PowerShell tab via gsudo
 
 ## Keybindings
 
@@ -41,7 +40,6 @@ Copy-Item wezterm-windows.lua $HOME\.wezterm.lua
 | Split vertical | `Cmd+Shift+E` | `Ctrl+Shift+E` |
 | Close pane | `Cmd+W` | `Ctrl+W` |
 | New tab | `Cmd+T` | `Ctrl+T` |
-| New admin tab | — | `Ctrl+Shift+T` (gsudo‡) |
 | Copy | `Cmd+C` | `Ctrl+C` (smart*) |
 | Paste | `Cmd+V` | `Ctrl+V` |
 | Move pane left/down/up/right | `Alt+H/J/K/L` | `Alt+H/J/K/L` |
@@ -56,7 +54,6 @@ Copy-Item wezterm-windows.lua $HOME\.wezterm.lua
 
 † **PuTTY-style right-click (both platforms)**: Right-click copies text when a selection exists, pastes from clipboard when nothing is selected.
 
-‡ **Admin tab** requires [gsudo](https://github.com/gerardog/gsudo): `winget install gerardog.gsudo`
 
 ## Key Differences Between macOS and Windows Configs
 
