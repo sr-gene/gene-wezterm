@@ -1,9 +1,10 @@
-# Bypass execution policy for this process
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-
 # Copy WezTerm config
 Copy-Item -Path "wezterm-windows.lua" -Destination "$HOME\.wezterm.lua" -Force
 Write-Host "WezTerm config installed to $HOME\.wezterm.lua"
+
+# Copy clipboard helper script (required for smart paste image support)
+Copy-Item -Path "wezterm_clipboard.ps1" -Destination "$HOME\.wezterm_clipboard.ps1" -Force
+Write-Host "Clipboard helper installed to $HOME\.wezterm_clipboard.ps1"
 
 # Add OSC 7 (current directory reporting) to PowerShell profile
 $profileDir = Split-Path $PROFILE
@@ -14,20 +15,30 @@ if (-not (Test-Path $profileDir)) {
 $osc7Block = @'
 
 # WezTerm OSC 7 - report current directory to tab title
-function Set-WezTermOSC7 {
-    $p = $executionContext.SessionState.Path.CurrentLocation.Path
-    $e = [char]27
-    $uri = "file:///$($env:COMPUTERNAME)/" + ($p -replace '\\','/')
-    Write-Host -NoNewline "$e]7;$uri$e\"
-}
-
-if (-not $function:prompt_original) {
-    $function:prompt_original = $function:prompt
-    function prompt {
-        Set-WezTermOSC7
-        prompt_original
+function Send-WezTermOSC7 {
+    $path = (Get-Location).Path
+    if ($path -match '^[A-Za-z]:') {
+        $uriPath = '/' + $path.Replace('\', '/')
+        [Console]::Write("`e]7;file://$($env:COMPUTERNAME)$uriPath`e\")
     }
 }
+
+# Emit OSC 7 on every cd (covers manual cd and z jumps that call Set-Location)
+function Set-Location {
+    Microsoft.PowerShell.Management\Set-Location @args
+    Send-WezTermOSC7
+}
+
+# Wrap whatever prompt is active (preserves Oh My Posh / starship styling)
+$private:_basePrompt = ${function:prompt}
+function prompt {
+    $result = if ($null -ne $private:_basePrompt) { & $private:_basePrompt } else { "PS $PWD> " }
+    Send-WezTermOSC7
+    $result
+}
+
+# Emit OSC 7 immediately at profile load so WezTerm knows starting CWD
+Send-WezTermOSC7
 '@
 
 # Install glow (markdown viewer) via winget if not already installed
@@ -38,7 +49,7 @@ if (-not (Get-Command glow -ErrorAction SilentlyContinue)) {
     Write-Host "glow already installed." -ForegroundColor Green
 }
 
-$marker = '# WezTerm OSC 7'
+$marker = 'Send-WezTermOSC7'
 if ((Test-Path $PROFILE) -and (Select-String -Path $PROFILE -Pattern $marker -Quiet)) {
     Write-Host "OSC 7 already in PowerShell profile." -ForegroundColor Green
 } else {
