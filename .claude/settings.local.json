@@ -10,7 +10,15 @@
       "WebFetch(domain:wezterm.org)",
       "WebFetch(domain:github.com)",
       "Bash(chmod +x /Users/gene/projects/gene/wezterm-setup/install-macos.sh)",
-      "Bash(./install-macos.sh)"
+      "Bash(./install-macos.sh)",
+      "Bash(wezterm:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(pwsh.exe:*)",
+      "Read(//d/gene/projects/gene-project/gene-wezterm/$USERPROFILE/.config/powershell/**)",
+      "Read(//d/gene/projects/gene-project/gene-wezterm/$USERPROFILE/Documents/PowerShell/**)",
+      "Bash(oh-my-posh version:*)",
+      "Bash(cp:*)",
+      "Bash(git:*)"
     ]
   }
 }

@@ -99,6 +99,11 @@ config.term = 'xterm-256color'
 config.use_ime = true
 config.ime_preedit_rendering = 'Builtin'
 
+-- Performance: reduce input latency
+config.animation_fps = 1
+config.cursor_blink_rate = 0
+config.front_end = 'WebGpu'
+
 ---------------------------------------
 -- Tab title: show current directory
 ---------------------------------------
@@ -114,27 +119,6 @@ wezterm.on('format-tab-title', function(tab)
   return (tab.tab_index + 1) .. ': ' .. tab.active_pane.title
 end)
 
--- Claude CLI model detection
-local _last_proc = nil
-local _cached_model = nil
-
-local function get_claude_model(pane)
-  local proc = pane:get_foreground_process_name() or ''
-  if proc == _last_proc then return _cached_model end
-  _last_proc = proc
-  if not proc:lower():find('claude') then
-    _cached_model = nil
-    return nil
-  end
-  local home = os.getenv('USERPROFILE') or os.getenv('HOME') or ''
-  local f = io.open(home .. '/.claude/settings.json', 'r')
-  if not f then _cached_model = nil; return nil end
-  local content = f:read('*a')
-  f:close()
-  _cached_model = content:match('"model"%s*:%s*"([^"]+)"') or nil
-  return _cached_model
-end
-
 -- Status bar: show full working directory path on the right side of tab bar
 wezterm.on('update-status', function(window, pane)
   local cwd = pane:get_current_working_dir()
@@ -143,15 +127,10 @@ wezterm.on('update-status', function(window, pane)
     path = cwd.file_path or tostring(cwd)
     path = path:gsub('^file:///',''):gsub('/$','')
   end
-  local model = get_claude_model(pane)
-  local cells = {}
-  if model then
-    table.insert(cells, { Foreground = { Color = '#bb9af7' } })
-    table.insert(cells, { Text = '  ' .. model })
-  end
-  table.insert(cells, { Foreground = { Color = '#ff9e64' } })
-  table.insert(cells, { Text = '  ' .. path .. '  ' })
-  window:set_right_status(wezterm.format(cells))
+  window:set_right_status(wezterm.format {
+    { Foreground = { Color = '#ff9e64' } },
+    { Text = '  ' .. path .. '  ' },
+  })
 end)
 
 ---------------------------------------
@@ -498,17 +477,21 @@ config.launch_menu = {
 }
 
 ---------------------------------------
--- Mouse bindings (PuTTY-style right-click)
+-- Mouse bindings
+-- Left release: auto-copy selection
+-- Right-click: smart paste (files/images/text detection)
 ---------------------------------------
 config.mouse_bindings = {
+  { event = { Up = { streak = 1, button = 'Left' } }, mods = 'NONE', action = act.CompleteSelection 'ClipboardAndPrimarySelection' },
+  { event = { Up = { streak = 2, button = 'Left' } }, mods = 'NONE', action = act.CompleteSelection 'ClipboardAndPrimarySelection' },
+  { event = { Up = { streak = 3, button = 'Left' } }, mods = 'NONE', action = act.CompleteSelection 'ClipboardAndPrimarySelection' },
   {
     event = { Down = { streak = 1, button = 'Right' } },
     mods = 'NONE',
     action = wezterm.action_callback(function(window, pane)
       local sel = window:get_selection_text_for_pane(pane)
       if sel and sel ~= '' then
-        window:perform_action(act.CopyTo 'ClipboardAndPrimarySelection', pane)
-        window:perform_action(act.ClearSelection, pane)
+        window:perform_action(act.CopyTo 'Clipboard', pane)
       else
         window:perform_action(act.PasteFrom 'Clipboard', pane)
       end

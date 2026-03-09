@@ -10,20 +10,21 @@ local function get_cwd(pane)
 end
 
 ---------------------------------------
--- 폰트 설정 (Nerd Font 권장)
+-- Font (Nerd Font recommended)
 ---------------------------------------
 config.font = wezterm.font('JetBrainsMono NF')
-config.font_size = 14.0  -- macOS Retina에 맞게 약간 크게
+config.font_size = 14.0  -- macOS Retina
 
 ---------------------------------------
--- 컬러 스킴
+-- Color Scheme
 ---------------------------------------
 config.color_scheme = 'Tokyo Night'
 
 ---------------------------------------
--- 창 설정
+-- Window
 ---------------------------------------
 config.window_decorations = 'INTEGRATED_BUTTONS|RESIZE'
+config.window_close_confirmation = 'AlwaysPrompt'
 config.window_padding = {
   left = 8, right = 8, top = 8, bottom = 8,
 }
@@ -32,21 +33,22 @@ config.initial_cols = 140
 config.native_macos_fullscreen_mode = true
 
 ---------------------------------------
--- 탭바 설정
+-- Tab Bar
 ---------------------------------------
 config.use_fancy_tab_bar = false
 config.tab_bar_at_bottom = false
 config.hide_tab_bar_if_only_one_tab = false
 
 ---------------------------------------
--- 스크롤백
+-- Scrollback
 ---------------------------------------
 config.scrollback_lines = 10000
 config.enable_scroll_bar = true
 
--- 스크롤바 & 탭바 색상
+-- Scrollbar & Tab Bar colors
 config.colors = {
   scrollbar_thumb = '#888888',
+  compose_cursor = '#ff9e64',
 
   tab_bar = {
     background = '#1a1b26',
@@ -86,39 +88,10 @@ config.colors = {
 config.term = 'xterm-256color'
 
 ---------------------------------------
--- 한글 IME 설정
+-- Korean IME
 ---------------------------------------
 config.use_ime = true
 config.ime_preedit_rendering = 'Builtin'
-
----------------------------------------
--- Session restore
----------------------------------------
-local session_file = wezterm.home_dir .. '/.wezterm_session.json'
-local last_save_time = 0
-
-local function save_session(window)
-  local now = os.time()
-  if now - last_save_time < 30 then return end
-  last_save_time = now
-  local tabs = {}
-  for _, tab in ipairs(window:mux_window():tabs()) do
-    local path = get_cwd(tab:active_pane())
-    if path then table.insert(tabs, path) end
-  end
-  local f = io.open(session_file, 'w')
-  if f then f:write(wezterm.json_encode(tabs)); f:close() end
-end
-
-wezterm.on('gui-startup', function(cmd)
-  local f = io.open(session_file, 'r')
-  if not f then wezterm.mux.spawn_window(cmd or {}); return end
-  local data = f:read('*a'); f:close()
-  local tabs = wezterm.json_decode(data)
-  if not tabs or #tabs == 0 then wezterm.mux.spawn_window(cmd or {}); return end
-  local _, _, window = wezterm.mux.spawn_window({ cwd = tabs[1] })
-  for i = 2, #tabs do window:spawn_tab({ cwd = tabs[i] }) end
-end)
 
 ---------------------------------------
 -- Tab title: show current directory
@@ -135,55 +108,296 @@ wezterm.on('format-tab-title', function(tab)
   return (tab.tab_index + 1) .. ': ' .. tab.active_pane.title
 end)
 
+-- Claude CLI model detection
+local _last_proc = nil
+local _cached_model = nil
+
+local function get_claude_model(pane)
+  local proc = pane:get_foreground_process_name() or ''
+  if proc == _last_proc then return _cached_model end
+  _last_proc = proc
+  if not proc:lower():find('claude') then
+    _cached_model = nil
+    return nil
+  end
+  local home = os.getenv('HOME') or ''
+  local f = io.open(home .. '/.claude/settings.json', 'r')
+  if not f then _cached_model = nil; return nil end
+  local content = f:read('*a')
+  f:close()
+  _cached_model = content:match('"model"%s*:%s*"([^"]+)"') or nil
+  return _cached_model
+end
+
 -- Status bar: show full working directory path on the right side of tab bar
 wezterm.on('update-status', function(window, pane)
-  save_session(window)
   local cwd = pane:get_current_working_dir()
   local path = ''
   if cwd then
     path = cwd.file_path or tostring(cwd)
     path = path:gsub('^file:///',''):gsub('/$','')
   end
-  window:set_right_status(wezterm.format {
-    { Foreground = { Color = '#ff9e64' } },
-    { Text = '  ' .. path .. '  ' },
-  })
+  local model = get_claude_model(pane)
+  local cells = {}
+  if model then
+    table.insert(cells, { Foreground = { Color = '#bb9af7' } })
+    table.insert(cells, { Text = '  ' .. model })
+  end
+  table.insert(cells, { Foreground = { Color = '#ff9e64' } })
+  table.insert(cells, { Text = '  ' .. path .. '  ' })
+  window:set_right_status(wezterm.format(cells))
 end)
+
+---------------------------------------
+-- F1 Cheatsheet data
+---------------------------------------
+local cheatsheet_choices = {
+  { label = '-- Tab ----------------------------------' },
+  { label = 'Cmd+T               New tab' },
+  { label = 'Ctrl+Tab            Next tab' },
+  { label = 'Ctrl+Shift+Tab      Previous tab' },
+  { label = 'Cmd+W               Close tab/pane' },
+  { label = 'Cmd+1-9             Switch to tab' },
+  { label = '' },
+  { label = '-- Pane ---------------------------------' },
+  { label = 'Cmd+D               Split horizontal' },
+  { label = 'Cmd+Shift+E         Split vertical' },
+  { label = 'Alt+H/J/K/L         Navigate panes' },
+  { label = 'Alt+Shift+H/L       Resize panes' },
+  { label = 'Cmd+Shift+Z         Zoom pane' },
+  { label = 'Cmd+Shift+S         Select pane' },
+  { label = 'Cmd+Shift+X         Swap pane' },
+  { label = 'Cmd+Shift+B         Break pane to tab' },
+  { label = '' },
+  { label = '-- Scroll -------------------------------' },
+  { label = 'Cmd+Home/End        Scroll top/bottom' },
+  { label = 'Cmd+Alt+U/D         Half-page scroll' },
+  { label = '' },
+  { label = '-- Copy / Paste -------------------------' },
+  { label = 'Cmd+C               Copy' },
+  { label = 'Cmd+V               Paste' },
+  { label = 'Right-click         Copy or paste' },
+  { label = '' },
+  { label = '-- Utility ------------------------------' },
+  { label = 'F1                  This cheatsheet' },
+  { label = 'Cmd+Shift+P         Smart Palette' },
+  { label = 'Cmd+Shift+I         Theme selector' },
+  { label = 'Cmd+Shift+O         Font selector' },
+  { label = 'Cmd+N               New window' },
+}
+
+---------------------------------------
+-- Smart Palette data
+---------------------------------------
+local palette_commands = {
+  { id = 'new_tab',      label = 'New tab' },
+  { id = 'close',        label = 'Close tab/pane' },
+  { id = 'next_tab',     label = 'Next tab' },
+  { id = 'prev_tab',     label = 'Previous tab' },
+  { id = 'rename_tab',   label = 'Rename tab' },
+  { id = 'split_h',      label = 'Split horizontal' },
+  { id = 'split_v',      label = 'Split vertical' },
+  { id = 'zoom',         label = 'Zoom pane' },
+  { id = 'select_pane',  label = 'Select pane' },
+  { id = 'swap_pane',    label = 'Swap pane' },
+  { id = 'break_pane',   label = 'Break pane to new tab' },
+  { id = 'copy',         label = 'Copy' },
+  { id = 'paste',        label = 'Paste' },
+  { id = 'search',       label = 'Search text' },
+  { id = 'copy_mode',    label = 'Copy Mode (Vim-style select)' },
+  { id = 'font_up',      label = 'Increase font size' },
+  { id = 'font_down',    label = 'Decrease font size' },
+  { id = 'font_reset',   label = 'Reset font size' },
+  { id = 'fullscreen',   label = 'Toggle fullscreen' },
+  { id = 'theme',        label = 'Change theme' },
+  { id = 'font_select',  label = 'Change font' },
+  { id = 'new_window',   label = 'New window' },
+  { id = 'reload',       label = 'Reload configuration' },
+  { id = 'cheatsheet',   label = 'Keyboard shortcuts (F1)' },
+}
+
+local palette_actions = {
+  new_tab     = act.SpawnTab 'CurrentPaneDomain',
+  close       = act.CloseCurrentPane { confirm = true },
+  next_tab    = act.ActivateTabRelative(1),
+  prev_tab    = act.ActivateTabRelative(-1),
+  rename_tab  = act.PromptInputLine {
+    description = wezterm.format {
+      { Foreground = { AnsiColor = 'Aqua' } },
+      { Text = 'Enter tab name:' },
+    },
+    action = wezterm.action_callback(function(window, pane, line)
+      if line then window:active_tab():set_title(line) end
+    end),
+  },
+  split_h     = act.SplitHorizontal { domain = 'CurrentPaneDomain' },
+  split_v     = act.SplitVertical { domain = 'CurrentPaneDomain' },
+  zoom        = act.TogglePaneZoomState,
+  select_pane = act.PaneSelect {},
+  swap_pane   = act.PaneSelect { mode = 'SwapWithActive' },
+  copy        = act.CopyTo 'Clipboard',
+  paste       = act.PasteFrom 'Clipboard',
+  search      = act.Search { CaseInSensitiveString = '' },
+  copy_mode   = act.ActivateCopyMode,
+  font_up     = act.IncreaseFontSize,
+  font_down   = act.DecreaseFontSize,
+  font_reset  = act.ResetFontSize,
+  fullscreen  = act.ToggleFullScreen,
+  new_window  = act.SpawnWindow,
+  reload      = act.ReloadConfiguration,
+}
+
+---------------------------------------
+-- Theme Selector data
+---------------------------------------
+local theme_choices = {
+  { id = 'Tokyo Night',                     label = 'Tokyo Night (default)' },
+  { id = 'Catppuccin Mocha',                label = 'Catppuccin Mocha' },
+  { id = 'One Dark (Gogh)',                 label = 'One Dark' },
+  { id = 'Dracula',                         label = 'Dracula' },
+  { id = 'Gruvbox dark, medium (base16)',   label = 'Gruvbox Dark' },
+  { id = 'Nord',                            label = 'Nord' },
+  { id = 'Solarized Dark (Gogh)',           label = 'Solarized Dark' },
+  { id = 'Kanagawa (Gogh)',                 label = 'Kanagawa' },
+  { id = 'rose-pine',                       label = 'Rose Pine' },
+  { id = 'Everforest Dark (Gogh)',          label = 'Everforest Dark' },
+  { id = 'GitHub Dark',                     label = 'GitHub Dark' },
+}
+
+---------------------------------------
+-- Font Selector data
+---------------------------------------
+local font_choices = {
+  { id = 'JetBrainsMono NF',   label = 'JetBrainsMono (default)' },
+  { id = 'CaskaydiaCove NF',   label = 'Cascadia Code' },
+  { id = 'FiraCode NF',        label = 'Fira Code' },
+  { id = 'Hack NF',            label = 'Hack' },
+  { id = 'MesloLGS NF',        label = 'MesloLGS' },
+  { id = 'SourceCodePro NF',   label = 'Source Code Pro' },
+  { id = 'UbuntuMono NF',      label = 'Ubuntu Mono' },
+  { id = 'RobotoMono NF',      label = 'Roboto Mono' },
+}
+
+---------------------------------------
+-- Reusable selector actions
+---------------------------------------
+local cheatsheet_action = act.InputSelector {
+  title = 'Keyboard Shortcuts (type to search)',
+  fuzzy = true,
+  fuzzy_description = 'Search shortcuts...',
+  choices = cheatsheet_choices,
+  action = wezterm.action_callback(function() end),
+}
+
+local theme_selector_action = act.InputSelector {
+  title = 'Select Theme (applied immediately)',
+  fuzzy = true,
+  fuzzy_description = 'Search themes...',
+  choices = theme_choices,
+  action = wezterm.action_callback(function(window, pane, id)
+    if id then
+      local overrides = window:get_config_overrides() or {}
+      overrides.color_scheme = id
+      window:set_config_overrides(overrides)
+    end
+  end),
+}
+
+local font_selector_action = act.InputSelector {
+  title = 'Select Font (applied immediately)',
+  fuzzy = true,
+  fuzzy_description = 'Search fonts...',
+  choices = font_choices,
+  action = wezterm.action_callback(function(window, pane, id)
+    if id then
+      local overrides = window:get_config_overrides() or {}
+      overrides.font = wezterm.font(id)
+      window:set_config_overrides(overrides)
+    end
+  end),
+}
 
 ---------------------------------------
 -- Keybindings (macOS: CMD based)
 ---------------------------------------
 config.keys = {
-  -- Pane 분할
+  -- F1: Keyboard shortcuts cheatsheet
+  { key = 'F1', action = cheatsheet_action },
+
+  -- Smart Palette (replaces default Command Palette)
+  {
+    key = 'p', mods = 'CMD|SHIFT',
+    action = act.InputSelector {
+      title = 'Command Palette',
+      fuzzy = true,
+      fuzzy_description = 'Search commands...',
+      choices = palette_commands,
+      action = wezterm.action_callback(function(window, pane, id)
+        if not id then return end
+        if id == 'theme' then
+          window:perform_action(theme_selector_action, pane)
+        elseif id == 'font_select' then
+          window:perform_action(font_selector_action, pane)
+        elseif id == 'cheatsheet' then
+          window:perform_action(cheatsheet_action, pane)
+        elseif id == 'break_pane' then
+          pane:move_to_new_tab()
+        elseif palette_actions[id] then
+          window:perform_action(palette_actions[id], pane)
+        end
+      end),
+    },
+  },
+
+  -- Original Command Palette (backup)
+  { key = 'p', mods = 'CMD|SHIFT|ALT', action = act.ActivateCommandPalette },
+
+  -- Theme / Font selectors
+  { key = 'i', mods = 'CMD|SHIFT', action = theme_selector_action },
+  { key = 'o', mods = 'CMD|SHIFT', action = font_selector_action },
+
+  -- Pane split
   { key = 'd', mods = 'CMD', action = act.SplitHorizontal { domain = 'CurrentPaneDomain' } },
   { key = 'e', mods = 'CMD|SHIFT', action = act.SplitVertical { domain = 'CurrentPaneDomain' } },
 
-  -- Pane 이동
+  -- Pane navigation
   { key = 'h', mods = 'ALT', action = act.ActivatePaneDirection 'Left' },
   { key = 'l', mods = 'ALT', action = act.ActivatePaneDirection 'Right' },
   { key = 'k', mods = 'ALT', action = act.ActivatePaneDirection 'Up' },
   { key = 'j', mods = 'ALT', action = act.ActivatePaneDirection 'Down' },
 
-  -- Pane 크기 조절
+  -- Pane resize
   { key = 'H', mods = 'ALT|SHIFT', action = act.AdjustPaneSize { 'Left', 5 } },
   { key = 'L', mods = 'ALT|SHIFT', action = act.AdjustPaneSize { 'Right', 5 } },
+
+  -- Pane management
+  { key = 'z', mods = 'CMD|SHIFT', action = act.TogglePaneZoomState },
+  { key = 's', mods = 'CMD|SHIFT', action = act.PaneSelect {} },
+  { key = 'x', mods = 'CMD|SHIFT', action = act.PaneSelect { mode = 'SwapWithActive' } },
+  { key = 'b', mods = 'CMD|SHIFT', action = wezterm.action_callback(function(win, pane)
+    pane:move_to_new_tab()
+  end)},
 
   -- New window (inherit current directory)
   { key = 'n', mods = 'CMD', action = wezterm.action_callback(function(window, pane)
     window:perform_action(act.SpawnCommandInNewWindow { cwd = get_cwd(pane), domain = 'CurrentPaneDomain' }, pane)
   end)},
 
-  -- Pane 닫기
+  -- Close pane
   { key = 'w', mods = 'CMD', action = act.CloseCurrentPane { confirm = true } },
 
-  -- 새 탭
+  -- New tab
   { key = 't', mods = 'CMD', action = act.SpawnTab 'CurrentPaneDomain' },
 
-  -- 복사 / 붙여넣기 (macOS 기본 CMD+C/V 유지)
+  -- Tab navigation (Ctrl+Tab since Cmd+Tab is macOS app switcher)
+  { key = 'Tab', mods = 'CTRL', action = act.ActivateTabRelative(1) },
+  { key = 'Tab', mods = 'CTRL|SHIFT', action = act.ActivateTabRelative(-1) },
+
+  -- Copy / Paste (macOS Cmd+C/V)
   { key = 'c', mods = 'CMD', action = act.CopyTo 'Clipboard' },
   { key = 'v', mods = 'CMD', action = act.PasteFrom 'Clipboard' },
 
-  -- 스크롤 내비게이션
+  -- Scroll navigation
   { key = 'End', mods = 'CMD', action = act.ScrollToBottom },
   { key = 'Home', mods = 'CMD', action = act.ScrollToTop },
   { key = 'u', mods = 'CMD|ALT', action = act.ScrollByPage(-0.5) },
