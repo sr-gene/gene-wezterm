@@ -1,3 +1,11 @@
+# Install PowerShell 7 (pwsh) if not already installed
+if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing PowerShell 7..." -ForegroundColor Cyan
+    winget install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements
+} else {
+    Write-Host "PowerShell 7 already installed." -ForegroundColor Green
+}
+
 # Copy WezTerm config
 Copy-Item -Path "wezterm-windows.lua" -Destination "$HOME\.wezterm.lua" -Force
 Write-Host "WezTerm config installed to $HOME\.wezterm.lua"
