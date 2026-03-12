@@ -14,6 +14,12 @@ if (-not (Test-Path $profileDir)) {
 
 $osc7Block = @'
 
+# PSReadLine key handlers
+Import-Module PSReadLine
+Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+Set-PSReadLineKeyHandler -Key RightArrow -Function AcceptSuggestion
+Set-PSReadLineKeyHandler -Key Ctrl+Spacebar -Function MenuComplete
+
 # WezTerm OSC 7 - report current directory to tab title
 function Send-WezTermOSC7 {
     $path = (Get-Location).Path

@@ -8,7 +8,9 @@ local function get_cwd(pane)
   if not cwd then return nil end
   local path = cwd.file_path or tostring(cwd)
   -- Extract Windows drive-letter path from any prefix (e.g. /HOSTNAME/C:/... or /C:/...)
-  return path:match('([A-Za-z]:[/\\].*)') or path
+  path = path:match('([A-Za-z]:[/\\].*)') or path
+  -- Normalize to Windows backslashes so PowerShell sets CWD correctly
+  return path:gsub('/', '\\'):gsub('\\+$', '')
 end
 
 ---------------------------------------

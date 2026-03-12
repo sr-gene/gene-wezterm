@@ -1,0 +1,12 @@
+# Reference / external guides
+by-sanghoon-wezterm-powershell-claude-setup-guide/
+
+# OMC / Claude Code local state
+.omc/
+.claude/settings.local.json
+memory/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
