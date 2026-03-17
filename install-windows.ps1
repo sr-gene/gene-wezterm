@@ -6,6 +6,14 @@ if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
     Write-Host "PowerShell 7 already installed." -ForegroundColor Green
 }
 
+# Install JetBrainsMono Nerd Font (required by WezTerm config)
+if (-not (Test-Path "C:\Windows\Fonts\JetBrainsMonoNerdFont-Regular.ttf")) {
+    Write-Host "Installing JetBrainsMono Nerd Font..." -ForegroundColor Cyan
+    winget install DEVCOM.JetBrainsMonoNerdFont --accept-source-agreements --accept-package-agreements
+} else {
+    Write-Host "JetBrainsMono Nerd Font already installed." -ForegroundColor Green
+}
+
 # Copy WezTerm config
 Copy-Item -Path "wezterm-windows.lua" -Destination "$HOME\.wezterm.lua" -Force
 Write-Host "WezTerm config installed to $HOME\.wezterm.lua"
