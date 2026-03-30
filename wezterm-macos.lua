@@ -93,6 +93,11 @@ config.term = 'xterm-256color'
 config.use_ime = true
 config.ime_preedit_rendering = 'Builtin'
 
+-- Performance: reduce input latency
+config.animation_fps = 1
+config.cursor_blink_rate = 0
+config.front_end = 'WebGpu'
+
 ---------------------------------------
 -- Tab title: show current directory
 ---------------------------------------
@@ -356,9 +361,15 @@ config.keys = {
   { key = 'i', mods = 'CMD|SHIFT', action = theme_selector_action },
   { key = 'o', mods = 'CMD|SHIFT', action = font_selector_action },
 
-  -- Pane split
-  { key = 'd', mods = 'CMD', action = act.SplitHorizontal { domain = 'CurrentPaneDomain' } },
-  { key = 'e', mods = 'CMD|SHIFT', action = act.SplitVertical { domain = 'CurrentPaneDomain' } },
+  -- Pane split (inherit current directory)
+  { key = 'd', mods = 'CMD', action = wezterm.action_callback(function(window, pane)
+    local new_pane = pane:split { direction = 'Right', domain = 'CurrentPaneDomain', cwd = get_cwd(pane) }
+    new_pane:send_text('\x1b')
+  end)},
+  { key = 'e', mods = 'CMD|SHIFT', action = wezterm.action_callback(function(window, pane)
+    local new_pane = pane:split { direction = 'Bottom', domain = 'CurrentPaneDomain', cwd = get_cwd(pane) }
+    new_pane:send_text('\x1b')
+  end)},
 
   -- Pane navigation
   { key = 'h', mods = 'ALT', action = act.ActivatePaneDirection 'Left' },
@@ -386,8 +397,10 @@ config.keys = {
   -- Close pane
   { key = 'w', mods = 'CMD', action = act.CloseCurrentPane { confirm = true } },
 
-  -- New tab
-  { key = 't', mods = 'CMD', action = act.SpawnTab 'CurrentPaneDomain' },
+  -- New tab (inherit current directory)
+  { key = 't', mods = 'CMD', action = wezterm.action_callback(function(window, pane)
+    window:perform_action(act.SpawnCommandInNewTab { cwd = get_cwd(pane), domain = 'CurrentPaneDomain' }, pane)
+  end)},
 
   -- Tab navigation (Ctrl+Tab since Cmd+Tab is macOS app switcher)
   { key = 'Tab', mods = 'CTRL', action = act.ActivateTabRelative(1) },
@@ -405,9 +418,14 @@ config.keys = {
 }
 
 ---------------------------------------
--- Mouse bindings (PuTTY-style right-click)
+-- Mouse bindings
+-- Left release: auto-copy selection
+-- Right-click: copy or paste
 ---------------------------------------
 config.mouse_bindings = {
+  { event = { Up = { streak = 1, button = 'Left' } }, mods = 'NONE', action = act.CompleteSelection 'ClipboardAndPrimarySelection' },
+  { event = { Up = { streak = 2, button = 'Left' } }, mods = 'NONE', action = act.CompleteSelection 'ClipboardAndPrimarySelection' },
+  { event = { Up = { streak = 3, button = 'Left' } }, mods = 'NONE', action = act.CompleteSelection 'ClipboardAndPrimarySelection' },
   {
     event = { Down = { streak = 1, button = 'Right' } },
     mods = 'NONE',
