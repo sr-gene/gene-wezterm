@@ -2,11 +2,18 @@ local wezterm = require 'wezterm'
 local config = wezterm.config_builder()
 local act = wezterm.action
 
--- Extract path from WezTerm's cwd URL
+-- Extract path from WezTerm's cwd URL (for spawning processes)
 local function get_cwd(pane)
   local cwd = pane:get_current_working_dir()
   if not cwd then return nil end
   return cwd.file_path or nil
+end
+
+-- Clean cwd into a display string (used by tab title and status bar)
+local function get_display_path(cwd)
+  if not cwd then return '' end
+  local path = cwd.file_path or tostring(cwd)
+  return (path:gsub('^file:///', ''):gsub('/$', ''))
 end
 
 ---------------------------------------
@@ -83,11 +90,6 @@ config.colors = {
 }
 
 ---------------------------------------
--- Shell Integration
----------------------------------------
-config.term = 'xterm-256color'
-
----------------------------------------
 -- Korean IME
 ---------------------------------------
 config.use_ime = true
@@ -96,17 +98,13 @@ config.ime_preedit_rendering = 'Builtin'
 -- Performance: reduce input latency
 config.animation_fps = 1
 config.cursor_blink_rate = 0
-config.front_end = 'WebGpu'
 
 ---------------------------------------
 -- Tab title: show current directory
 ---------------------------------------
 wezterm.on('format-tab-title', function(tab)
-  local pane = tab.active_pane
-  local cwd = pane.current_working_dir
-  if cwd then
-    local path = cwd.file_path or tostring(cwd)
-    path = path:gsub('^file:///',''):gsub('/$','')
+  local path = get_display_path(tab.active_pane.current_working_dir)
+  if path ~= '' then
     local folder = path:match('[/\\]([^/\\]+)$') or path
     return (tab.tab_index + 1) .. ': ' .. folder
   end
@@ -115,16 +113,22 @@ end)
 
 -- Claude CLI model detection
 local _last_proc = nil
+local _last_check = 0
 local _cached_model = nil
 
 local function get_claude_model(pane)
   local proc = pane:get_foreground_process_name() or ''
-  if proc == _last_proc then return _cached_model end
-  _last_proc = proc
   if not proc:lower():find('claude') then
+    _last_proc = proc
     _cached_model = nil
     return nil
   end
+  local now = os.time()
+  if proc == _last_proc and (now - _last_check) < 5 then
+    return _cached_model
+  end
+  _last_proc = proc
+  _last_check = now
   local home = os.getenv('HOME') or ''
   local f = io.open(home .. '/.claude/settings.json', 'r')
   if not f then _cached_model = nil; return nil end
@@ -135,14 +139,16 @@ local function get_claude_model(pane)
 end
 
 -- Status bar: show full working directory path on the right side of tab bar
+local _last_status = {}
+
 wezterm.on('update-status', function(window, pane)
-  local cwd = pane:get_current_working_dir()
-  local path = ''
-  if cwd then
-    path = cwd.file_path or tostring(cwd)
-    path = path:gsub('^file:///',''):gsub('/$','')
-  end
+  local path = get_display_path(pane:get_current_working_dir())
   local model = get_claude_model(pane)
+  local key = (model or '') .. '|' .. path
+  local wid = window:window_id()
+  if _last_status[wid] == key then return end
+  _last_status[wid] = key
+
   local cells = {}
   if model then
     table.insert(cells, { Foreground = { Color = '#bb9af7' } })
@@ -151,6 +157,63 @@ wezterm.on('update-status', function(window, pane)
   table.insert(cells, { Foreground = { Color = '#ff9e64' } })
   table.insert(cells, { Text = '  ' .. path .. '  ' })
   window:set_right_status(wezterm.format(cells))
+end)
+
+---------------------------------------
+-- Smart Paste (files/images/text detection via osascript)
+-- Files from Finder -> POSIX paths
+-- Images (screenshots) -> temp PNG path
+-- Text -> default WezTerm paste (Claude Code compatible)
+---------------------------------------
+local FURL = '\xC2\xABclass furl\xC2\xBB'
+local PNGF = '\xC2\xABclass PNGf\xC2\xBB'
+
+local smart_paste_action = wezterm.action_callback(function(window, pane)
+  local function fallback_paste()
+    window:perform_action(act.PasteFrom 'Clipboard', pane)
+  end
+
+  local ok_info, info = wezterm.run_child_process({ 'osascript', '-e', 'clipboard info' })
+  if not ok_info or not info then return fallback_paste() end
+
+  -- File URL on the clipboard (e.g., copied from Finder)
+  if info:find('furl', 1, true) then
+    local ok, stdout = wezterm.run_child_process({
+      'osascript', '-e', 'POSIX path of (the clipboard as ' .. FURL .. ')'
+    })
+    if ok and stdout then
+      local path = stdout:gsub('%s+$', '')
+      if path ~= '' then
+        pane:send_text(path)
+        return
+      end
+    end
+  end
+
+  -- Image on the clipboard (e.g., Cmd+Shift+Ctrl+4 screenshot)
+  if info:find('PNGf', 1, true) or info:find('TIFF', 1, true) then
+    local tmp = '/tmp/wezterm-clip-' .. os.time() .. '.png'
+    local ok = wezterm.run_child_process({
+      'osascript', '-e',
+      'set f to open for access POSIX file "' .. tmp .. '" with write permission\n' ..
+      'write (the clipboard as ' .. PNGF .. ') to f\n' ..
+      'close access f'
+    })
+    if ok then
+      local f = io.open(tmp, 'rb')
+      if f then
+        local data = f:read(1)
+        f:close()
+        if data then
+          pane:send_text(tmp)
+          return
+        end
+      end
+      os.remove(tmp)
+    end
+  end
+
+  fallback_paste()
 end)
 
 ---------------------------------------
@@ -181,6 +244,7 @@ local cheatsheet_choices = {
   { label = '-- Copy / Paste -------------------------' },
   { label = 'Cmd+C               Copy' },
   { label = 'Cmd+V               Paste' },
+  { label = 'Cmd+Shift+V         Smart paste (files/images)' },
   { label = 'Right-click         Copy or paste' },
   { label = '' },
   { label = '-- Utility ------------------------------' },
@@ -405,6 +469,9 @@ config.keys = {
   -- Tab navigation (Ctrl+Tab since Cmd+Tab is macOS app switcher)
   { key = 'Tab', mods = 'CTRL', action = act.ActivateTabRelative(1) },
   { key = 'Tab', mods = 'CTRL|SHIFT', action = act.ActivateTabRelative(-1) },
+
+  -- Smart paste (files/images/text detection)
+  { key = 'v', mods = 'CMD|SHIFT', action = smart_paste_action },
 
   -- Copy / Paste (macOS Cmd+C/V)
   { key = 'c', mods = 'CMD', action = act.CopyTo 'Clipboard' },

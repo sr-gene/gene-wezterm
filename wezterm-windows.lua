@@ -2,7 +2,7 @@ local wezterm = require 'wezterm'
 local config = wezterm.config_builder()
 local act = wezterm.action
 
--- Extract valid Windows path from WezTerm's cwd URL
+-- Extract valid Windows path from WezTerm's cwd URL (for spawning processes)
 local function get_cwd(pane)
   local cwd = pane:get_current_working_dir()
   if not cwd then return nil end
@@ -11,6 +11,13 @@ local function get_cwd(pane)
   path = path:match('([A-Za-z]:[/\\].*)') or path
   -- Normalize to Windows backslashes so PowerShell sets CWD correctly
   return path:gsub('/', '\\'):gsub('\\+$', '')
+end
+
+-- Clean cwd into a display string (used by tab title and status bar)
+local function get_display_path(cwd)
+  if not cwd then return '' end
+  local path = cwd.file_path or tostring(cwd)
+  return (path:gsub('^file:///', ''):gsub('/$', ''))
 end
 
 ---------------------------------------
@@ -91,11 +98,6 @@ config.colors = {
 }
 
 ---------------------------------------
--- Shell Integration
----------------------------------------
-config.term = 'xterm-256color'
-
----------------------------------------
 -- Korean IME
 ---------------------------------------
 config.use_ime = true
@@ -104,17 +106,13 @@ config.ime_preedit_rendering = 'Builtin'
 -- Performance: reduce input latency
 config.animation_fps = 1
 config.cursor_blink_rate = 0
-config.front_end = 'WebGpu'
 
 ---------------------------------------
 -- Tab title: show current directory
 ---------------------------------------
 wezterm.on('format-tab-title', function(tab)
-  local pane = tab.active_pane
-  local cwd = pane.current_working_dir
-  if cwd then
-    local path = cwd.file_path or tostring(cwd)
-    path = path:gsub('^file:///',''):gsub('/$','')
+  local path = get_display_path(tab.active_pane.current_working_dir)
+  if path ~= '' then
     local folder = path:match('[/\\]([^/\\]+)$') or path
     return (tab.tab_index + 1) .. ': ' .. folder
   end
@@ -122,13 +120,14 @@ wezterm.on('format-tab-title', function(tab)
 end)
 
 -- Status bar: show full working directory path on the right side of tab bar
+local _last_status = {}
+
 wezterm.on('update-status', function(window, pane)
-  local cwd = pane:get_current_working_dir()
-  local path = ''
-  if cwd then
-    path = cwd.file_path or tostring(cwd)
-    path = path:gsub('^file:///',''):gsub('/$','')
-  end
+  local path = get_display_path(pane:get_current_working_dir())
+  local wid = window:window_id()
+  if _last_status[wid] == path then return end
+  _last_status[wid] = path
+
   window:set_right_status(wezterm.format {
     { Foreground = { Color = '#ff9e64' } },
     { Text = '  ' .. path .. '  ' },
@@ -453,6 +452,7 @@ config.keys = {
     local sel = window:get_selection_text_for_pane(pane)
     if sel and sel ~= '' then
       window:perform_action(act.CopyTo 'Clipboard', pane)
+      window:perform_action(act.ClearSelection, pane)
     else
       window:perform_action(act.SendKey { key = 'c', mods = 'CTRL' }, pane)
     end
