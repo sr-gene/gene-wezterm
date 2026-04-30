@@ -1,3 +1,5 @@
+Version 0.1.0.0 — 2026-04-30
+
 # WezTerm Setup
 
 Cross-platform WezTerm terminal configuration with Tokyo Night theme.
