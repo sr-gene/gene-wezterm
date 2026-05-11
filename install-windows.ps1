@@ -36,6 +36,11 @@ Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 Set-PSReadLineKeyHandler -Key RightArrow -Function AcceptSuggestion
 Set-PSReadLineKeyHandler -Key Ctrl+Spacebar -Function MenuComplete
 
+# Inline prediction (autosuggest) — dim gray + italic so it's clearly distinct from typed text
+Set-PSReadLineOption -PredictionSource HistoryAndPlugin
+Set-PSReadLineOption -PredictionViewStyle InlineView
+Set-PSReadLineOption -Colors @{ InlinePrediction = "`e[38;5;242;3m" }
+
 # WezTerm OSC 7 - report current directory to tab title
 function Send-WezTermOSC7 {
     $path = (Get-Location).Path
